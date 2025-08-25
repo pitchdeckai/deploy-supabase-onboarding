@@ -111,7 +111,7 @@ export default function CustomersPage() {
           subscriptions!inner (
             id,
             status,
-            amount_cents,
+            amount,
             currency,
             current_period_start,
             current_period_end,
@@ -119,7 +119,7 @@ export default function CustomersPage() {
               name, 
               price_cents, 
               currency,
-              billing_interval
+              interval
             )
           )
         `)
@@ -140,7 +140,7 @@ export default function CustomersPage() {
           return (
             total +
             customer.subscriptions.reduce((subTotal: number, sub: any) => {
-              return sub.status === "active" ? subTotal + (sub.amount_cents || 0) : subTotal
+              return sub.status === "active" ? subTotal + (sub.amount || 0) : subTotal
             }, 0)
           )
         }, 0) || 0

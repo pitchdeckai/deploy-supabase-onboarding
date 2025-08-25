@@ -1,11 +1,9 @@
 import { createServerClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = cookies()
-    const supabase = createServerClient(cookieStore)
+    const supabase = await createServerClient()
 
     // Get authenticated user
     const {

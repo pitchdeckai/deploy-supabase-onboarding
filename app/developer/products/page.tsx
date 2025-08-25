@@ -101,7 +101,7 @@ export default function ProductsPage() {
           description: productDescription,
           price_cents: Math.round(Number.parseFloat(price) * 100),
           currency,
-          billing_interval: billingInterval,
+          interval: billingInterval,
         }),
       })
 

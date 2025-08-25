@@ -1,85 +1,65 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase/server"
-import { cookies } from "next/headers"
 import Stripe from "stripe"
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-12-18.acacia",
-})
+import { createServerClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
   try {
-    const { price_id, success_url, cancel_url, customer_email } = await request.json()
-
-    if (!price_id) {
-      return NextResponse.json({ error: "Price ID is required" }, { status: 400 })
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json({ error: "STRIPE_SECRET_KEY environment variable is not configured" }, { status: 500 })
     }
 
-    console.log("[v0] Creating checkout session for price:", price_id)
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2025-07-30.basil" as any,
+    })
 
-    // Create Supabase client
-    const cookieStore = cookies()
-    const supabase = createServerClient(cookieStore)
+    const supabase = await createServerClient()
+    const { priceId, connectedAccountId, successUrl, cancelUrl } = await request.json()
 
+    if (!priceId || !connectedAccountId) {
+      return NextResponse.json({ error: "Price ID and connected account ID are required" }, { status: 400 })
+    }
+
+    // Get product details for fee calculation
     const { data: product } = await supabase
       .from("products")
-      .select(`
-        *,
-        developers!inner(
-          id,
-          stripe_account_id,
-          email,
-          name
-        )
-      `)
-      .eq("stripe_price_id", price_id)
+      .select("price_cents")
+      .eq("stripe_price_id", priceId)
       .single()
 
-    if (!product) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 })
-    }
+    // Calculate 5% platform fee
+    const applicationFeePercent = 5
 
-    const connectedAccountId = product.developers.stripe_account_id
-
-    // Create checkout session
-    console.log("[v0] Creating Stripe checkout session")
+    // Create checkout session with direct charges (customer pays vendor directly)
+    // Platform takes 5% application fee
     const session = await stripe.checkout.sessions.create(
       {
-        payment_method_types: ["card"],
+        mode: "subscription",
         line_items: [
           {
-            price: price_id,
+            price: priceId,
             quantity: 1,
           },
         ],
-        mode: "subscription",
-        success_url: success_url || `${process.env.NEXT_PUBLIC_APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: cancel_url || `${process.env.NEXT_PUBLIC_APP_URL}/cancel`,
-        customer_email: customer_email || undefined,
-        payment_intent_data: {
-          application_fee_amount: Math.round(product.price_cents * 0.05), // 5% platform fee
-        },
+        success_url: successUrl || `${process.env.NEXT_PUBLIC_APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}/cancel`,
+        application_fee_percent: applicationFeePercent, // 5% platform fee
         metadata: {
-          product_id: product.id,
-          developer_id: product.developers.id,
+          connected_account_id: connectedAccountId,
+          platform_fee_percent: applicationFeePercent.toString(),
         },
       },
       {
-        stripeAccount: connectedAccountId,
-      },
+        stripeAccount: connectedAccountId, // Create session on vendor's account
+      }
     )
-
-    console.log("[v0] Checkout session created successfully")
 
     return NextResponse.json({
-      checkout_url: session.url,
-      session_id: session.id,
+      sessionId: session.id,
+      url: session.url,
+      applicationFeePercent,
     })
-  } catch (error) {
-    console.error("[v0] Checkout session creation error:", error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to create checkout session" },
-      { status: 500 },
-    )
+  } catch (error: any) {
+    console.error("Checkout session creation error:", error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

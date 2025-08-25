@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
       apiVersion: "2025-07-30.basil" as any,
     })
 
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
 
     // Get authenticated user
     const {
@@ -23,33 +23,55 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { name, description, priceInCents, currency = "usd", connectedAccountId } = await request.json()
+    // Get developer record with Stripe account
+    const { data: developer, error: devError } = await supabase
+      .from("developers")
+      .select("id, stripe_account_id")
+      .eq("user_id", user.id)
+      .single()
 
-    // Create product at platform level as specified
-    const product = await stripe.products.create({
-      name: name,
-      description: description,
-      default_price_data: {
-        unit_amount: priceInCents,
+    if (devError || !developer?.stripe_account_id) {
+      return NextResponse.json({ error: "Developer not found or not onboarded" }, { status: 404 })
+    }
+
+    const { name, description, priceInCents, currency = "usd", interval = "month" } = await request.json()
+
+    // Create product directly on vendor's connected account for better attribution
+    const product = await stripe.products.create(
+      {
+        name: name,
+        description: description,
+      },
+      {
+        stripeAccount: developer.stripe_account_id, // Create on vendor's account
+      }
+    )
+
+    // Create price on vendor's account
+    const price = await stripe.prices.create(
+      {
         currency: currency,
+        unit_amount: priceInCents,
+        product: product.id,
+        recurring: interval !== "one_time" ? { interval: interval } : undefined,
       },
-      // Store connected account mapping in metadata
-      metadata: {
-        connected_account_id: connectedAccountId,
-        created_by_user: user.id,
-      },
-    })
+      {
+        stripeAccount: developer.stripe_account_id,
+      }
+    )
 
-    // Also store in database for easier querying
+    // Store in database for easier querying
     const { error: dbError } = await supabase.from("products").insert({
       stripe_product_id: product.id,
-      stripe_price_id: product.default_price as string,
-      connected_account_id: connectedAccountId,
+      stripe_price_id: price.id,
+      connected_account_id: developer.stripe_account_id,
       user_id: user.id,
+      developer_id: developer.id,
       name,
       description,
       price_cents: priceInCents,
       currency,
+      interval,
     })
 
     if (dbError) {
@@ -59,8 +81,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       productId: product.id,
-      priceId: product.default_price,
-      message: "Product created successfully",
+      priceId: price.id,
+      message: "Product created successfully on vendor account",
     })
   } catch (error) {
     console.error("Product creation error:", error)

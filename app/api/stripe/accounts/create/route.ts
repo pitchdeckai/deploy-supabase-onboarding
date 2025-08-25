@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       apiVersion: "2025-07-30.basil" as any,
     })
 
-    const supabase = createServerClient()
+    const supabase = await createServerClient()
 
     // Get authenticated user
     const {

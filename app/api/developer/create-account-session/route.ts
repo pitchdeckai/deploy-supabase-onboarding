@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
-import { cookies } from "next/headers"
 import Stripe from "stripe"
 
 export async function POST(request: NextRequest) {
@@ -10,7 +9,7 @@ export async function POST(request: NextRequest) {
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: "2024-12-18.acacia",
+      apiVersion: "2025-07-30.basil" as any,
     })
     const { email, name } = await request.json()
 
@@ -21,8 +20,7 @@ export async function POST(request: NextRequest) {
     console.log("[v0] Creating account session for:", email)
 
     // Create Supabase client
-    const cookieStore = cookies()
-    const supabase = createServerClient(cookieStore)
+    const supabase = await createServerClient()
 
     // Get authenticated user
     const {
@@ -50,6 +48,20 @@ export async function POST(request: NextRequest) {
       const account = await stripe.accounts.create({
         type: "express",
         email: email,
+        controller: {
+          // Platform is responsible for fees (5% above Stripe's fees)
+          fees: {
+            payer: "application" as const,
+          },
+          // Platform is responsible for losses/refunds/chargebacks
+          losses: {
+            payments: "application" as const,
+          },
+          // Give them access to express dashboard
+          stripe_dashboard: {
+            type: "express" as const,
+          },
+        },
         capabilities: {
           transfers: { requested: true },
         },
@@ -66,7 +78,7 @@ export async function POST(request: NextRequest) {
         email: email,
         name: name || null,
         stripe_account_id: stripeAccountId,
-        onboarding_completed: false,
+        onboarding_complete: false,
       })
 
       if (insertError) {

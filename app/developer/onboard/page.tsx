@@ -53,7 +53,9 @@ export default function DeveloperOnboardPage() {
       document.head.appendChild(script)
 
       return () => {
-        document.head.removeChild(script)
+        if (document.head.contains(script)) {
+          document.head.removeChild(script)
+        }
       }
     }
   }, [showEmbeddedOnboarding, accountSession])
@@ -67,6 +69,7 @@ export default function DeveloperOnboardPage() {
         onExit: () => {
           console.log("[v0] User exited onboarding")
           setShowEmbeddedOnboarding(false)
+          router.push("/developer/dashboard")
         },
         onLoadError: (error: any) => {
           console.log("[v0] Onboarding load error:", error)

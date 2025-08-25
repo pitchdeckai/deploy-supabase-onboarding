@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
             product_id: testProductId,
             stripe_subscription_id: `sub_test_${Date.now()}`,
             status: "active",
-            amount_cents: 2999,
+            amount: 2999,
             currency: "usd",
             current_period_start: new Date().toISOString(),
             current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
