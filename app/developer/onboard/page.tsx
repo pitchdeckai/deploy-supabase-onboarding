@@ -10,6 +10,8 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { CreditCard, Shield, DollarSign } from "lucide-react"
 
+export const dynamic = "force-dynamic"
+
 export default function DeveloperOnboardPage() {
   const [loading, setLoading] = useState(false)
   const [user, setUser] = useState<any>(null)
@@ -17,7 +19,12 @@ export default function DeveloperOnboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [showEmbeddedOnboarding, setShowEmbeddedOnboarding] = useState(false)
   const [accountSession, setAccountSession] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     const getUser = async () => {
@@ -100,6 +107,10 @@ export default function DeveloperOnboardPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (!mounted) {
+    return <div>Loading...</div>
   }
 
   if (!user) {

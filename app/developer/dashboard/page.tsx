@@ -3,9 +3,8 @@ import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CheckCircle, Clock, AlertCircle, DollarSign, TrendingUp, Users, CreditCard, Settings } from "lucide-react"
-import { ExpressDashboardButton, ExportPayoutsButton, GenerateReportButton } from "./interactive-buttons"
+import { CheckCircle, Clock, AlertCircle, DollarSign, TrendingUp, Users, CreditCard, Package } from "lucide-react"
+import { ExpressDashboardButton } from "./interactive-buttons"
 import Link from "next/link"
 
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
@@ -23,6 +22,12 @@ export default async function DeveloperDashboard() {
 
   // Get developer info
   const { data: developer } = await supabase.from("developers").select("*").eq("user_id", user.id).single()
+
+  const { data: subscriptions } = await supabase.from("subscriptions").select("*").eq("developer_id", developer?.id)
+
+  const { data: customers } = await supabase.from("customers").select("*").eq("developer_id", developer?.id)
+
+  const { data: products } = await supabase.from("products").select("*").eq("developer_id", developer?.id)
 
   // Get Stripe account details if developer exists
   let stripeAccount = null
@@ -55,6 +60,12 @@ export default async function DeveloperDashboard() {
   const availableBalance = balance?.available?.[0]?.amount || 0
   const pendingBalance = balance?.pending?.[0]?.amount || 0
 
+  const activeSubscriptions = subscriptions?.filter((sub) => sub.status === "active").length || 0
+  const totalCustomers = customers?.length || 0
+  const totalProducts = products?.length || 0
+  const monthlyRevenue =
+    subscriptions?.filter((sub) => sub.status === "active").reduce((sum, sub) => sum + (sub.amount || 0), 0) || 0
+
   return (
     <div className="container mx-auto py-6 px-4">
       <div className="flex flex-col gap-6">
@@ -63,16 +74,13 @@ export default async function DeveloperDashboard() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Express Dashboard</h1>
             <p className="text-muted-foreground mt-1">
-              {stripeAccount?.business_profile?.name || user.user_metadata?.name || user.email}
+              {stripeAccount?.business_profile?.name ||
+                developer?.business_name ||
+                user.user_metadata?.name ||
+                user.email}
             </p>
           </div>
           <div className="flex gap-2">
-            <Link href="/developer/settings">
-              <Button variant="outline" size="sm">
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
-              </Button>
-            </Link>
             <ExpressDashboardButton stripeAccountId={developer?.stripe_account_id} />
           </div>
         </div>
@@ -156,156 +164,121 @@ export default async function DeveloperDashboard() {
           </Card>
         </div>
 
-        {/* Main Content Tabs */}
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="payouts">Payouts</TabsTrigger>
-            <TabsTrigger value="customers">Customers</TabsTrigger>
-            <TabsTrigger value="reports">Reports</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Account Requirements */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Account Requirements</CardTitle>
-                  <CardDescription>Complete these steps to activate your account</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {stripeAccount?.requirements?.currently_due?.length > 0 ? (
-                    <>
-                      <div className="space-y-2">
-                        {stripeAccount.requirements.currently_due.map((requirement: string, index: number) => (
-                          <div key={index} className="flex items-center gap-2">
-                            <AlertCircle className="h-4 w-4 text-amber-600" />
-                            <span className="text-sm capitalize">{requirement.replace(/_/g, " ")}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <Link href="/developer/onboard">
-                        <Button className="w-full">Complete Requirements</Button>
-                      </Link>
-                    </>
-                  ) : (
-                    <div className="flex items-center gap-2 text-green-600">
-                      <CheckCircle className="h-4 w-4" />
-                      <span className="text-sm">All requirements completed</span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Recent Activity */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Payouts</CardTitle>
-                  <CardDescription>Your latest payout history</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {payouts.length > 0 ? (
-                    <div className="space-y-3">
-                      {payouts.slice(0, 5).map((payout: any) => (
-                        <div key={payout.id} className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <CreditCard className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                              <p className="text-sm font-medium">${(payout.amount / 100).toFixed(2)}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {new Date(payout.created * 1000).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                          <Badge variant={payout.status === "paid" ? "default" : "secondary"}>{payout.status}</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No payouts yet</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="payouts" className="space-y-4">
-            <Card>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Link href="/developer/products">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Payout History</CardTitle>
-                    <CardDescription>All your payouts and transfers</CardDescription>
-                  </div>
-                  <ExportPayoutsButton />
+                <div className="flex items-center gap-2">
+                  <Package className="h-5 w-5 text-primary" />
+                  <CardTitle>Products</CardTitle>
                 </div>
+                <CardDescription>Manage your SaaS products and pricing</CardDescription>
               </CardHeader>
               <CardContent>
-                {payouts.length > 0 ? (
-                  <div className="space-y-4">
-                    {payouts.map((payout: any) => (
-                      <div key={payout.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center gap-4">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                            <CreditCard className="h-5 w-5 text-primary" />
-                          </div>
-                          <div>
-                            <p className="font-medium">${(payout.amount / 100).toFixed(2)}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {new Date(payout.created * 1000).toLocaleDateString()} • Arrives{" "}
-                              {new Date(payout.arrival_date * 1000).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        <Badge variant={payout.status === "paid" ? "default" : "secondary"}>{payout.status}</Badge>
+                <Button variant="outline" className="w-full bg-transparent">
+                  Manage Products →
+                </Button>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/developer/subscriptions">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-primary" />
+                  <CardTitle>Subscriptions</CardTitle>
+                </div>
+                <CardDescription>View and manage customer subscriptions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button variant="outline" className="w-full bg-transparent">
+                  View Subscriptions →
+                </Button>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/developer/customers">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  <CardTitle>Customers</CardTitle>
+                </div>
+                <CardDescription>Manage customer relationships</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button variant="outline" className="w-full bg-transparent">
+                  Manage Customers →
+                </Button>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+
+        {/* Recent Activity Section */}
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Account Requirements */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Account Requirements</CardTitle>
+              <CardDescription>Complete these steps to activate your account</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {stripeAccount?.requirements?.currently_due?.length > 0 ? (
+                <>
+                  <div className="space-y-2">
+                    {stripeAccount.requirements.currently_due.map((requirement: string, index: number) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-amber-600" />
+                        <span className="text-sm capitalize">{requirement.replace(/_/g, " ")}</span>
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No payouts yet</p>
-                    <p className="text-sm text-muted-foreground">Payouts will appear here once you start earning</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="customers" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Customer Overview</CardTitle>
-                <CardDescription>Manage your customer relationships</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No customers yet</p>
-                  <p className="text-sm text-muted-foreground">
-                    Customer data will appear here once you start processing payments
-                  </p>
+                  <Link href="/developer/onboard">
+                    <Button className="w-full">Complete Requirements</Button>
+                  </Link>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckCircle className="h-4 w-4" />
+                  <span className="text-sm">All requirements completed</span>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              )}
+            </CardContent>
+          </Card>
 
-          <TabsContent value="reports" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Financial Reports</CardTitle>
-                <CardDescription>Download detailed reports of your earnings</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">Reports will be available once you have transaction data</p>
-                  <GenerateReportButton />
+          {/* Recent Payouts */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Payouts</CardTitle>
+              <CardDescription>Your latest payout history</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {payouts.length > 0 ? (
+                <div className="space-y-3">
+                  {payouts.slice(0, 5).map((payout: any) => (
+                    <div key={payout.id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">${(payout.amount / 100).toFixed(2)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(payout.created * 1000).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant={payout.status === "paid" ? "default" : "secondary"}>{payout.status}</Badge>
+                    </div>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              ) : (
+                <p className="text-sm text-muted-foreground">No payouts yet</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )
