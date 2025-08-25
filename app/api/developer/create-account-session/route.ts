@@ -3,12 +3,15 @@ import { createServerClient } from "@/lib/supabase/server"
 import { cookies } from "next/headers"
 import Stripe from "stripe"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-12-18.acacia",
-})
-
 export async function POST(request: NextRequest) {
   try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json({ error: "STRIPE_SECRET_KEY environment variable is not configured" }, { status: 500 })
+    }
+
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2024-12-18.acacia",
+    })
     const { email, name } = await request.json()
 
     if (!email) {

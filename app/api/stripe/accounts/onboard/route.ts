@@ -1,15 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-07-30.basil" as any,
-})
-
 export async function POST(request: NextRequest) {
   try {
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: "STRIPE_SECRET_KEY environment variable is not configured" }, { status: 500 })
     }
+
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2025-07-30.basil" as any,
+    })
 
     if (!process.env.NEXT_PUBLIC_APP_URL) {
       return NextResponse.json({ error: "NEXT_PUBLIC_APP_URL environment variable is not configured" }, { status: 500 })
