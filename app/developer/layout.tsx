@@ -108,6 +108,11 @@ export default function DeveloperLayout({
 
       {/* Mobile Sidebar */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetTrigger asChild>
+          <Button variant="outline" size="sm" className="md:hidden fixed top-3 left-4 z-50">
+            <Menu className="h-5 w-5" />
+          </Button>
+        </SheetTrigger>
         <SheetContent side="left" className="w-64 p-0">
           <div className="flex flex-col h-full">
             <div className="flex items-center flex-shrink-0 px-4 py-5">
@@ -167,11 +172,6 @@ export default function DeveloperLayout({
               </div>
               <h1 className="text-xl font-bold">SaaS Connect</h1>
             </div>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
           </div>
         </div>
 
