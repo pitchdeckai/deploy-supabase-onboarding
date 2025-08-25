@@ -5,7 +5,7 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, name } = await request.json()
+    const { email, name, business_name, business_type } = await request.json()
 
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
@@ -21,13 +21,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
 
-    // Create Standard connected account
     const account = await stripe.accounts.create({
-      type: "standard",
+      type: "express",
       email: email,
       business_profile: {
-        name: name || "Developer Account",
+        name: business_name || name || "Developer Account",
         mcc: "5734", // Computer Software Stores
+      },
+      capabilities: {
+        transfers: { requested: true },
       },
     })
 
@@ -37,7 +39,13 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         email: email,
         name: name,
+        business_name: business_name,
+        business_type: business_type,
         stripe_account_id: account.id,
+        stripe_account_status: "pending",
+        onboarding_complete: false,
+        charges_enabled: false,
+        payouts_enabled: false,
       })
       .select()
       .single()
