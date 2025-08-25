@@ -1,11 +1,30 @@
 erDiagram
 
+  application_fees {
+    string id PK
+    string stripe_application_fee_id UK
+    string stripe_charge_id
+    string stripe_payment_intent_id
+    string subscription_id FK
+    string developer_id FK
+    string connected_account_id
+    int amount
+    decimal fee_percent
+    int gross_amount
+    string currency
+    string status
+    timestamptz stripe_created_at
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
   commissions {
     string id PK
     string subscription_id FK
     string developer_id FK
     decimal commission_percentage
     timestamptz created_at
+    string application_fee_id FK
   }
 
   credit_transactions {
@@ -78,6 +97,10 @@ erDiagram
     timestamptz created_at
     timestamptz updated_at
     string currency
+    int platform_fees_deducted
+    int net_amount
+    date fee_period_start
+    date fee_period_end
   }
 
   products {
@@ -95,6 +118,17 @@ erDiagram
     string developer_id FK
     string interval
     boolean active
+    decimal application_fee_percent
+  }
+
+  stripe_events {
+    string id PK
+    string stripe_event_id UK
+    string event_type
+    string account_id
+    boolean processed
+    json data
+    timestamptz created_at
   }
 
   subscription_plans {
@@ -126,10 +160,16 @@ erDiagram
     string currency
     timestamptz current_period_start
     timestamptz current_period_end
+    int platform_fee_amount
+    decimal platform_fee_percent
+    string stripe_application_fee_id
   }
 
+  subscriptions ||--o{ application_fees : "id to subscription_id"
+  developers ||--o{ application_fees : "id to developer_id"
   subscriptions ||--o{ commissions : "id to subscription_id"
   developers ||--o{ commissions : "id to developer_id"
+  application_fees ||--o{ commissions : "id to application_fee_id"
   credits ||--o{ credit_transactions : "id to credit_id"
   developers ||--o{ credits : "id to developer_id"
   developers ||--o{ customers : "id to developer_id"

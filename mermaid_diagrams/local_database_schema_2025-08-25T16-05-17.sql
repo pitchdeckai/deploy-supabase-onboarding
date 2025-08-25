@@ -1,5 +1,24 @@
 -- Local Database Schema Recreation Script
--- Generated automatically on 2025-08-25T12:30:00.425Z
+-- Generated automatically on 2025-08-25T16:05:21.789Z
+
+CREATE TABLE application_fees (
+  id UUID NOT NULL DEFAULT gen_random_uuid(),
+  stripe_application_fee_id TEXT NOT NULL,
+  stripe_charge_id TEXT,
+  stripe_payment_intent_id TEXT,
+  subscription_id UUID,
+  developer_id UUID NOT NULL,
+  connected_account_id TEXT NOT NULL,
+  amount INTEGER NOT NULL,
+  fee_percent NUMERIC NOT NULL DEFAULT 5.0,
+  gross_amount INTEGER NOT NULL,
+  currency TEXT DEFAULT 'usd'::text,
+  status TEXT DEFAULT 'pending'::text,
+  stripe_created_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  PRIMARY KEY (id)
+);
 
 CREATE TABLE commissions (
   id UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -7,6 +26,7 @@ CREATE TABLE commissions (
   developer_id UUID,
   commission_percentage NUMERIC DEFAULT 5.0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  application_fee_id UUID,
   PRIMARY KEY (id)
 );
 
@@ -85,6 +105,10 @@ CREATE TABLE payouts (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   currency TEXT DEFAULT 'usd'::text,
+  platform_fees_deducted INTEGER DEFAULT 0,
+  net_amount INTEGER,
+  fee_period_start DATE,
+  fee_period_end DATE,
   PRIMARY KEY (id)
 );
 
@@ -103,6 +127,18 @@ CREATE TABLE products (
   developer_id UUID,
   interval TEXT,
   active BOOLEAN DEFAULT true,
+  application_fee_percent NUMERIC DEFAULT 5.0,
+  PRIMARY KEY (id)
+);
+
+CREATE TABLE stripe_events (
+  id UUID NOT NULL DEFAULT gen_random_uuid(),
+  stripe_event_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  account_id TEXT,
+  processed BOOLEAN DEFAULT false,
+  data JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   PRIMARY KEY (id)
 );
 
@@ -136,13 +172,19 @@ CREATE TABLE subscriptions (
   currency TEXT DEFAULT 'usd'::text,
   current_period_start TIMESTAMP WITH TIME ZONE,
   current_period_end TIMESTAMP WITH TIME ZONE,
+  platform_fee_amount INTEGER DEFAULT 0,
+  platform_fee_percent NUMERIC DEFAULT 5.0,
+  stripe_application_fee_id TEXT,
   PRIMARY KEY (id)
 );
 
+ALTER TABLE application_fees ADD CONSTRAINT fk_application_fees_subscription_id FOREIGN KEY (subscription_id) REFERENCES subscriptions(id);
+ALTER TABLE application_fees ADD CONSTRAINT fk_application_fees_developer_id FOREIGN KEY (developer_id) REFERENCES developers(id);
 ALTER TABLE commissions ADD CONSTRAINT fk_commissions_subscription_id FOREIGN KEY (subscription_id) REFERENCES subscriptions(id);
 ALTER TABLE commissions ADD CONSTRAINT fk_commissions_developer_id FOREIGN KEY (developer_id) REFERENCES developers(id);
 ALTER TABLE commissions ADD CONSTRAINT fk_commissions_subscription_id FOREIGN KEY (subscription_id) REFERENCES subscriptions(id);
 ALTER TABLE commissions ADD CONSTRAINT fk_commissions_developer_id FOREIGN KEY (developer_id) REFERENCES developers(id);
+ALTER TABLE commissions ADD CONSTRAINT fk_commissions_application_fee_id FOREIGN KEY (application_fee_id) REFERENCES application_fees(id);
 ALTER TABLE credit_transactions ADD CONSTRAINT fk_credit_transactions_credit_id FOREIGN KEY (credit_id) REFERENCES credits(id);
 ALTER TABLE credits ADD CONSTRAINT fk_credits_developer_id FOREIGN KEY (developer_id) REFERENCES developers(id);
 ALTER TABLE customers ADD CONSTRAINT fk_customers_developer_id FOREIGN KEY (developer_id) REFERENCES developers(id);

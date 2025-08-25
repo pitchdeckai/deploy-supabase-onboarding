@@ -8,8 +8,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "STRIPE_SECRET_KEY environment variable is not configured" }, { status: 500 })
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: "2025-07-30.basil" as any,
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: "2024-12-18.acacia",
     })
     const { email, name } = await request.json()
 
@@ -36,28 +36,28 @@ export async function POST(request: NextRequest) {
     // Check if developer already exists
     const { data: existingDeveloper } = await supabase
       .from("developers")
-      .select("stripe_account_id")
+      .select("id, stripe_account_id, onboarding_complete")
       .eq("user_id", user.id)
       .single()
 
     let stripeAccountId = existingDeveloper?.stripe_account_id
+    let developerId = existingDeveloper?.id
 
     // Create Stripe account if it doesn't exist
     if (!stripeAccountId) {
       console.log("[v0] Creating new Stripe account")
       const account = await stripe.accounts.create({
-        type: "express",
         email: email,
         controller: {
-          // Platform is responsible for fees (5% above Stripe's fees)
+          // Platform handles fee collection
           fees: {
             payer: "application" as const,
           },
-          // Platform is responsible for losses/refunds/chargebacks
+          // Platform must control losses when using express dashboard
           losses: {
             payments: "application" as const,
           },
-          // Give them access to express dashboard
+          // Use express dashboard for account management
           stripe_dashboard: {
             type: "express" as const,
           },
@@ -72,19 +72,36 @@ export async function POST(request: NextRequest) {
 
       stripeAccountId = account.id
 
-      // Store in database
-      const { error: insertError } = await supabase.from("developers").insert({
-        user_id: user.id,
-        email: email,
-        name: name || null,
-        stripe_account_id: stripeAccountId,
-        onboarding_complete: false,
-      })
+      // Upsert developer record
+      const { data: upsertedDeveloper, error: upsertError } = await supabase
+        .from("developers")
+        .upsert({
+          user_id: user.id,
+          email: email,
+          name: name || null,
+          stripe_account_id: stripeAccountId,
+          onboarding_complete: false,
+          charges_enabled: false,
+          payouts_enabled: false,
+          stripe_account_status: 'pending',
+        }, {
+          onConflict: 'user_id',
+        })
+        .select()
+        .single()
 
-      if (insertError) {
-        console.log("[v0] Database insert error:", insertError)
+      if (upsertError) {
+        console.log("[v0] Database upsert error:", upsertError)
+        // Try to delete the Stripe account if database operation fails
+        try {
+          await stripe.accounts.del(stripeAccountId)
+        } catch (deleteError) {
+          console.error("[v0] Failed to cleanup Stripe account:", deleteError)
+        }
         return NextResponse.json({ error: "Failed to store developer account" }, { status: 500 })
       }
+      
+      developerId = upsertedDeveloper?.id
     }
 
     // Create account session for embedded onboarding
@@ -104,8 +121,34 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error("[v0] Account session creation error:", error)
+
+    // Log more detailed error information
+    if (error instanceof Error) {
+      console.error("[v0] Error name:", error.name)
+      console.error("[v0] Error message:", error.message)
+      console.error("[v0] Error stack:", error.stack)
+    }
+
+    // Provide more specific error messages
+    let errorMessage = "Failed to create account session"
+    if (error instanceof Error) {
+      if (error.message.includes("controller")) {
+        errorMessage = "Stripe account configuration error. Please check your platform settings."
+      } else if (error.message.includes("database") || error.message.includes("insert")) {
+        errorMessage = "Database error while storing account information."
+      } else if (error.message.includes("auth")) {
+        errorMessage = "Authentication error. Please log in again."
+      } else {
+        errorMessage = error.message
+      }
+    }
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to create account session" },
+      {
+        error: errorMessage,
+        details: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString()
+      },
       { status: 500 },
     )
   }

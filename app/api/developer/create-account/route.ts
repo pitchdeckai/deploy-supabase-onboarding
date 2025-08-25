@@ -1,7 +1,11 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
+import Stripe from "stripe"
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2024-12-18.acacia",
+})
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,8 +26,21 @@ export async function POST(request: NextRequest) {
     }
 
     const account = await stripe.accounts.create({
-      type: "express",
       email: email,
+      controller: {
+        // Platform handles fee collection
+        fees: {
+          payer: "application" as const,
+        },
+        // Platform must control losses when using express dashboard
+        losses: {
+          payments: "application" as const,
+        },
+        // Use express dashboard for account management
+        stripe_dashboard: {
+          type: "express" as const,
+        },
+      },
       business_profile: {
         name: business_name || name || "Developer Account",
         mcc: "5734", // Computer Software Stores
