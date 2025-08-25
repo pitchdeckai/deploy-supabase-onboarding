@@ -1,0 +1,142 @@
+erDiagram
+
+  commissions {
+    string id PK
+    string subscription_id FK
+    string developer_id FK
+    decimal commission_percentage
+    timestamptz created_at
+  }
+
+  credit_transactions {
+    string id PK
+    string credit_id FK
+    int amount
+    string type
+    string description
+    timestamptz created_at
+  }
+
+  credits {
+    string id PK
+    string developer_id FK
+    int balance
+    date period_start
+    date period_end
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  customers {
+    string id PK
+    string developer_id FK
+    string stripe_customer_id UK
+    string email
+    string name
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  developer_subscriptions {
+    string id PK
+    string developer_id FK
+    string plan_id FK
+    string stripe_subscription_id UK
+    string status
+    timestamptz current_period_start
+    timestamptz current_period_end
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  developers {
+    string id PK
+    string user_id
+    string email UK
+    string name
+    string stripe_account_id UK
+    boolean onboarding_complete
+    boolean payouts_enabled
+    timestamptz created_at
+    timestamptz updated_at
+    string business_name
+    string business_type
+    string stripe_account_status
+    boolean charges_enabled
+    array requirements_pending
+  }
+
+  payouts {
+    string id PK
+    string developer_id FK
+    int amount
+    string stripe_transfer_id UK
+    string stripe_payout_id
+    date period_start
+    date period_end
+    string status
+    timestamptz created_at
+    timestamptz updated_at
+    string currency
+  }
+
+  products {
+    string id PK
+    string stripe_product_id UK
+    string stripe_price_id
+    string connected_account_id
+    string user_id
+    string name
+    string description
+    int price_cents
+    string currency
+    timestamptz created_at
+    timestamptz updated_at
+    string developer_id FK
+    string interval
+    boolean active
+  }
+
+  subscription_plans {
+    string id PK
+    string name
+    string description
+    int price_cents
+    string currency
+    string interval
+    json features
+    boolean active
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  subscriptions {
+    string id PK
+    string stripe_subscription_id UK
+    string stripe_customer_id
+    string customer_email
+    int amount
+    string status
+    timestamptz created_at
+    timestamptz updated_at
+    string developer_id FK
+    string product_id FK
+    string customer_id FK
+    string connected_account_id
+    string currency
+    timestamptz current_period_start
+    timestamptz current_period_end
+  }
+
+  subscriptions ||--o{ commissions : "id to subscription_id"
+  developers ||--o{ commissions : "id to developer_id"
+  credits ||--o{ credit_transactions : "id to credit_id"
+  developers ||--o{ credits : "id to developer_id"
+  developers ||--o{ customers : "id to developer_id"
+  developers ||--o{ developer_subscriptions : "id to developer_id"
+  subscription_plans ||--o{ developer_subscriptions : "id to plan_id"
+  developers ||--o{ payouts : "id to developer_id"
+  developers ||--o{ products : "id to developer_id"
+  developers ||--o{ subscriptions : "id to developer_id"
+  products ||--o{ subscriptions : "id to product_id"
+  customers ||--o{ subscriptions : "id to customer_id"

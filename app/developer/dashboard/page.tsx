@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -6,8 +8,6 @@ import { Button } from "@/components/ui/button"
 import { CheckCircle, Clock, AlertCircle, DollarSign, TrendingUp, Users, CreditCard, Package } from "lucide-react"
 import { ExpressDashboardButton } from "./interactive-buttons"
 import Link from "next/link"
-
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
 
 export default async function DeveloperDashboard() {
   const supabase = await createClient()
@@ -29,24 +29,10 @@ export default async function DeveloperDashboard() {
 
   const { data: products } = await supabase.from("products").select("*").eq("developer_id", developer?.id)
 
-  // Get Stripe account details if developer exists
-  let stripeAccount = null
-  let balance = null
-  let payouts = []
-
-  if (developer?.stripe_account_id) {
-    try {
-      stripeAccount = await stripe.accounts.retrieve(developer.stripe_account_id)
-      balance = await stripe.balance.retrieve({ stripeAccount: developer.stripe_account_id })
-      const stripePayouts = await stripe.payouts.list({
-        stripeAccount: developer.stripe_account_id,
-        limit: 10,
-      })
-      payouts = stripePayouts.data
-    } catch (error) {
-      console.error("Error fetching Stripe data:", error)
-    }
-  }
+  // For now, we'll rely on the database for account status
+  // Stripe API calls should be made from API routes, not directly in server components
+  const stripeAccountId = developer?.stripe_account_id
+  const isOnboardingComplete = developer?.onboarding_complete || false
 
   // Get payout history from database
   const { data: payoutHistory } = await supabase
@@ -57,8 +43,9 @@ export default async function DeveloperDashboard() {
     .limit(10)
 
   const totalEarnings = payoutHistory?.reduce((sum, payout) => sum + (payout.amount || 0), 0) || 0
-  const availableBalance = balance?.available?.[0]?.amount || 0
-  const pendingBalance = balance?.pending?.[0]?.amount || 0
+  // These will be fetched from the database or via API routes
+  const availableBalance = 0 // TODO: Fetch from Stripe via API route
+  const pendingBalance = 0 // TODO: Fetch from Stripe via API route
 
   const activeSubscriptions = subscriptions?.filter((sub) => sub.status === "active").length || 0
   const totalCustomers = customers?.length || 0
@@ -74,19 +61,16 @@ export default async function DeveloperDashboard() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Express Dashboard</h1>
             <p className="text-muted-foreground mt-1">
-              {stripeAccount?.business_profile?.name ||
-                developer?.business_name ||
-                user.user_metadata?.name ||
-                user.email}
+              {developer?.business_name || user.user_metadata?.name || user.email}
             </p>
           </div>
           <div className="flex gap-2">
-            <ExpressDashboardButton stripeAccountId={developer?.stripe_account_id} />
+            <ExpressDashboardButton stripeAccountId={stripeAccountId} />
           </div>
         </div>
 
         {/* Account Status Alert */}
-        {!developer?.onboarding_complete && (
+        {!isOnboardingComplete && (
           <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -143,7 +127,7 @@ export default async function DeveloperDashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Account Status</CardTitle>
-              {stripeAccount?.charges_enabled ? (
+              {isOnboardingComplete ? (
                 <CheckCircle className="h-4 w-4 text-green-600" />
               ) : (
                 <AlertCircle className="h-4 w-4 text-amber-600" />
@@ -151,14 +135,14 @@ export default async function DeveloperDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {stripeAccount?.charges_enabled ? (
+                {isOnboardingComplete ? (
                   <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">Active</Badge>
                 ) : (
                   <Badge variant="secondary">Setup Required</Badge>
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                {stripeAccount?.charges_enabled ? "Ready to accept payments" : "Complete verification"}
+                {isOnboardingComplete ? "Ready to accept payments" : "Complete verification"}
               </p>
             </CardContent>
           </Card>
@@ -226,15 +210,13 @@ export default async function DeveloperDashboard() {
               <CardDescription>Complete these steps to activate your account</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {stripeAccount?.requirements?.currently_due?.length > 0 ? (
+              {!isOnboardingComplete ? (
                 <>
                   <div className="space-y-2">
-                    {stripeAccount.requirements.currently_due.map((requirement: string, index: number) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4 text-amber-600" />
-                        <span className="text-sm capitalize">{requirement.replace(/_/g, " ")}</span>
-                      </div>
-                    ))}
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-amber-600" />
+                      <span className="text-sm">Account verification pending</span>
+                    </div>
                   </div>
                   <Link href="/developer/onboard">
                     <Button className="w-full">Complete Requirements</Button>
@@ -256,20 +238,20 @@ export default async function DeveloperDashboard() {
               <CardDescription>Your latest payout history</CardDescription>
             </CardHeader>
             <CardContent>
-              {payouts.length > 0 ? (
+              {payoutHistory && payoutHistory.length > 0 ? (
                 <div className="space-y-3">
-                  {payouts.slice(0, 5).map((payout: any) => (
+                  {payoutHistory.slice(0, 5).map((payout: any) => (
                     <div key={payout.id} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <CreditCard className="h-4 w-4 text-muted-foreground" />
                         <div>
                           <p className="text-sm font-medium">${(payout.amount / 100).toFixed(2)}</p>
                           <p className="text-xs text-muted-foreground">
-                            {new Date(payout.created * 1000).toLocaleDateString()}
+                            {new Date(payout.created_at).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
-                      <Badge variant={payout.status === "paid" ? "default" : "secondary"}>{payout.status}</Badge>
+                      <Badge variant={payout.status === "completed" ? "default" : "secondary"}>{payout.status}</Badge>
                     </div>
                   ))}
                 </div>
