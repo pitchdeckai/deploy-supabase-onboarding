@@ -22,7 +22,8 @@ interface AuthResponse {
   error: Error | null;
 }
 
-// Hardcoded test users for development
+// Test users that match the database test_user_credentials table
+// These will automatically get developer profiles when signing up
 const TEST_USERS: Array<{ email: string; password: string; name: string; id: string }> = [
   {
     id: 'test-user-1',
@@ -195,6 +196,7 @@ class MockSupabaseAuth {
 
 class MockSupabaseClient {
   auth: MockSupabaseAuth;
+  __mock: boolean = true; // Flag to identify this as a mock client
 
   constructor() {
     this.auth = new MockSupabaseAuth();

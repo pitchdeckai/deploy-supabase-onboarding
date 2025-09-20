@@ -9,8 +9,11 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  allowedDevOrigins: ['*'],
-  // Add CORS headers for API routes (replaces invalid 'allowedDevOrigins')
+  // Allow all development origins to prevent cross-origin blocking
+  experimental: {
+    allowedDevOrigins: ['api.forgedai.com', 'localhost:3000', '*.vercel.app'],
+  },
+  // Add CORS headers for API routes
   async headers() {
     return [
       {

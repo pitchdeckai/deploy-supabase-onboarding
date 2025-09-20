@@ -24,6 +24,15 @@ export default function SignUpPage() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     const supabase = createClient()
+    
+    // Debug which client is being used
+    console.log('🔍 Client debug info:', {
+      isDev: process.env.NODE_ENV === 'development',
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      clientType: (supabase as any).__mock ? 'MOCK' : 'REAL'
+    })
+    
     setIsLoading(true)
     setError(null)
 
@@ -34,23 +43,46 @@ export default function SignUpPage() {
     }
 
     try {
+      console.log('🚀 Starting sign-up process...', { email, name })
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo:
-            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/developer/onboard`,
+            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/callback`,
           data: {
             name: name,
           },
         },
       })
-      if (error) throw error
+      
+      console.log('📦 Sign-up response:', { data, error })
+      
+      if (error) {
+        console.error('❌ Sign-up error:', error)
+        throw error
+      }
 
-      // Skip email verification - redirect directly to dashboard
-      router.push("/developer/dashboard")
+      if (data.user) {
+        console.log('✅ User created successfully:', data.user.id)
+        
+        // Check if email confirmation is required
+        if (!data.session) {
+          console.log('📧 Email confirmation required')
+          setError("Please check your email and click the confirmation link to complete registration.")
+        } else {
+          console.log('🎯 Auto-confirmed user, redirecting to dashboard')
+          router.push("/developer/dashboard")
+        }
+      } else {
+        console.warn('⚠️ No user returned from sign-up')
+        setError("Account creation failed - no user data received")
+      }
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      console.error('🚨 Sign-up catch block:', error)
+      const errorMessage = error instanceof Error ? error.message : "An error occurred during registration"
+      setError(`Registration failed: ${errorMessage}`)
     } finally {
       setIsLoading(false)
     }
