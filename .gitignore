@@ -20,6 +20,13 @@ yarn-error.log*
 .env
 .env.local
 .env.production
+.env.development
+
+# MCP (Model Context Protocol) configuration
+# Contains sensitive tokens and project references
+.cursor/
+mcp.json
+*.mcp.json
 
 # vercel
 .vercel

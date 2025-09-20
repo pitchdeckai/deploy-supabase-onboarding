@@ -8,43 +8,21 @@ npm run dev
 ```
 Your app should now be running at http://localhost:3000
 
-### Step 2: Start ngrok Tunnel
+### Step 2: Use Cloudflare Tunnel (Recommended)
 
-#### Option A: Use the PowerShell Script (Recommended)
-```powershell
-.\scripts\start-dev-with-ngrok.ps1
-```
-This script will:
-- Start your Next.js dev server (if not running)
-- Start ngrok tunnel
-- Display your webhook URLs
-- Copy the tunnel URL to clipboard
+You are using Cloudflare Tunnel. Your public URL is:
 
-#### Option B: Use the Batch Script
-```cmd
-.\scripts\start-ngrok.bat
-```
+- `https://api.forgedai.com/`
 
-#### Option C: Manual ngrok Start
-```bash
-ngrok http 3000
-```
-
-### Step 3: Get Your ngrok URL
-After starting ngrok, you'll see output like:
-```
-Forwarding  https://abc123.ngrok-free.app -> http://localhost:3000
-```
-
-Your webhook URLs will be:
-- **Stripe Webhook**: `https://abc123.ngrok-free.app/api/webhooks/stripe`
-- **Stripe Connect Webhook**: `https://abc123.ngrok-free.app/api/webhooks/stripe-connect`
+Your webhook URLs should be:
+- **Stripe Webhook**: `https://api.forgedai.com/api/webhooks/stripe`
+- **Stripe Connect Webhook**: `https://api.forgedai.com/api/webhooks/stripe-connect`
 
 ### Step 4: Configure Stripe Webhooks
 
 1. Go to [Stripe Dashboard Webhooks](https://dashboard.stripe.com/webhooks)
 2. Click **"Add endpoint"**
-3. Enter your endpoint URL: `https://YOUR_NGROK_URL.ngrok-free.app/api/webhooks/stripe-connect`
+3. Enter your endpoint URL: `https://api.forgedai.com/api/webhooks/stripe` (and/or `/stripe-connect`)
 4. Select the following events:
    - `account.updated` (for Connect account status)
    - `customer.subscription.created`
@@ -72,7 +50,7 @@ npm run dev
 
 ## Testing Webhooks
 
-### Using Stripe CLI (Alternative to ngrok)
+### Using Stripe CLI (Optional)
 
 If you prefer using Stripe CLI instead of ngrok:
 
@@ -91,7 +69,7 @@ stripe login
 
 3. Forward webhooks to your local server:
 ```bash
-stripe listen --forward-to localhost:3000/api/webhooks/stripe-connect
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
 ```
 
 4. The CLI will display your webhook signing secret - add it to `.env.local`
@@ -139,16 +117,10 @@ For production deployment:
 
 ## Troubleshooting
 
-### ngrok Issues
+### Cloudflare Tunnel Notes
 
-**Issue**: ngrok tunnel expires after 2 hours (free tier)
-**Solution**: Sign up for ngrok account for longer sessions or use Stripe CLI
-
-**Issue**: Can't access ngrok URL
-**Solution**: 
-- Check if ngrok is running: Visit http://127.0.0.1:4040
-- Ensure port 3000 is not blocked by firewall
-- Try restarting ngrok
+- Ensure your Cloudflare Tunnel is routing to your dev server (localhost:3000)
+- Verify HTTPS is enforced and the tunnel is reachable publicly
 
 ### Webhook Issues
 

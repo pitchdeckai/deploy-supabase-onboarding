@@ -1,38 +1,34 @@
 # Active Webhook Configuration
 **Generated**: 2025-07-30.basil
 
-## 🟢 Current ngrok Status
+## 🟢 Current Tunnel Status (Cloudflare)
 - **Status**: ONLINE
-- **Account**: evil.pocket.money@gmail.com (Free Plan)
-- **Tunnel URL**: https://ef400930409a.ngrok-free.app
-- **Forwarding to**: http://localhost:3000
-- **Web Interface**: http://127.0.0.1:4040
-- **Region**: United States (us)
-- **Latency**: 99ms
+- **Tunnel URL**: https://api.forgedai.com
+- **Forwarding to**: http://localhost:3000 (via Cloudflare Tunnel)
 
 ## 📌 Webhook Endpoints to Configure in Stripe
 
-### Primary Connect Webhook
+### Primary Webhook
 ```
-https://ef400930409a.ngrok-free.app/api/webhooks/stripe-connect
+https://api.forgedai.com/api/webhooks/stripe
 ```
 
-### Secondary Webhook (if needed)
+### Connect Webhook (if using Connect)
 ```
-https://ef400930409a.ngrok-free.app/api/webhooks/stripe
+https://api.forgedai.com/api/webhooks/stripe-connect
 ```
 
 ## 🔧 Quick Setup Steps
 
-### 1. Configure Stripe Connect Webhook
+### 1. Configure Stripe Webhooks
 
 1. Go to: https://dashboard.stripe.com/test/webhooks
 2. Click **"+ Add endpoint"**
 3. **Endpoint URL**: 
    ```
-   https://ef400930409a.ngrok-free.app/api/webhooks/stripe-connect
+   https://api.forgedai.com/api/webhooks/stripe
    ```
-4. **Description**: "Local Dev - Connect Events (ngrok)"
+4. **Description**: "Dev - Stripe Webhooks (Cloudflare Tunnel)"
 5. **Events to send** - Select:
    - ✅ `account.updated`
    - ✅ `customer.subscription.created`
