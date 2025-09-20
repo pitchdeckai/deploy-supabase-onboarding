@@ -1,5 +1,5 @@
 -- Local Database Schema Recreation Script
--- Generated automatically on 2025-08-25T16:05:21.789Z
+-- Generated automatically on 2025-09-20T16:07:45.878Z
 
 CREATE TABLE application_fees (
   id UUID NOT NULL DEFAULT gen_random_uuid(),

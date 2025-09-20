@@ -2,12 +2,13 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
 
 import Stripe from "stripe"
+import { withTrace, traceExternal } from "@/lib/observability"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-12-18.acacia",
+  apiVersion: "2025-07-30.basil",
 })
 
-export async function POST(request: NextRequest) {
+export const POST = withTrace(async (request: NextRequest, { requestId }) => {
   try {
     const supabase = await createServerClient()
 
@@ -26,11 +27,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Express Dashboard login link
-    const loginLink = await stripe.accounts.createLoginLink(developer.stripe_account_id)
+    const loginLink = await traceExternal({
+      requestId,
+      target: "stripe",
+      operation: "accounts.createLoginLink",
+      metadata: { account: developer.stripe_account_id },
+      exec: () => stripe.accounts.createLoginLink(developer.stripe_account_id)
+    })
 
     return NextResponse.json({ url: loginLink.url })
   } catch (error) {
     console.error("Error creating Express dashboard link:", error)
     return NextResponse.json({ error: "Failed to create dashboard link" }, { status: 500 })
   }
-}
+})

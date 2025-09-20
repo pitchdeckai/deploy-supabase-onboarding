@@ -1,0 +1,152 @@
+graph TB
+    %% External Services
+    subgraph "External Services"
+        CLERK[🔐 Clerk Auth]
+        STRIPE[💳 Stripe Payments]
+        GROQ[🤖 Groq API]
+        POSTGRES[(🗄️ PostgreSQL)]
+    end
+
+    %% Frontend Layer
+    subgraph "Frontend Layer"
+        LANDING[🏠 Landing Page]
+        PRICING[💰 Pricing Page]
+        DASHBOARD[📊 User Dashboard]
+        ADMIN[⚙️ Admin Panel]
+        
+        subgraph "Components"
+            AUTH_COMP[🔑 Auth Components]
+            BILLING_COMP[💳 Billing Components]
+            USAGE_COMP[📈 Usage Analytics]
+            PRICING_COMP[💰 Pricing Cards]
+            ADMIN_COMP[⚙️ Admin Components]
+        end
+    end
+
+    %% API Layer
+    subgraph "API Layer"
+        subgraph "Authentication"
+            CLERK_WEBHOOK[📨 /api/webhooks/clerk]
+        end
+        
+        subgraph "Payment Processing"
+            STRIPE_WEBHOOK[📨 /api/webhooks/stripe]
+            CHECKOUT[🛒 /api/checkout]
+            BILLING_PORTAL[🏪 /api/billing-portal]
+        end
+        
+        subgraph "AI Services"
+            CHAT_API[🤖 /api/openai/v1/chat/completions]
+            TOKEN_CONSUME[🪙 Token Consumption]
+        end
+        
+        subgraph "User Management"
+            USER_CREDITS[💰 /api/user/credits]
+            USAGE_ANALYTICS[📊 /api/user/usage-analytics]
+        end
+        
+        subgraph "Admin APIs"
+            ADMIN_PRODUCTS[📦 /api/admin/products]
+            ADMIN_STRIPE[⚡ /api/admin/stripe-sync]
+            ADMIN_RULES[⚖️ /api/admin/consumption-rules]
+        end
+    end
+
+    %% Database Layer
+    subgraph "Database Schema"
+        USER_DB[(👤 Users)]
+        SUB_DB[(📋 Subscriptions)]
+        PRODUCT_DB[(📦 Products)]
+        CREDIT_DB[(💰 Credit Transactions)]
+        USAGE_DB[(📊 API Usage)]
+        TOKEN_RULES[(⚖️ Token Rules)]
+        TOKEN_LOGS[(📝 Token Logs)]
+        ANALYTICS_DB[(📈 Usage Analytics)]
+    end
+
+    %% Business Logic Layer
+    subgraph "Core Services"
+        TOKEN_SERVICE[🪙 Token Consumption Service]
+        STRIPE_SERVICE[💳 Stripe Integration]
+        USER_SERVICE[👤 User Management]
+        ANALYTICS_SERVICE[📊 Analytics Engine]
+    end
+
+    %% User Flow Connections
+    LANDING --> AUTH_COMP
+    PRICING --> PRICING_COMP
+    DASHBOARD --> USAGE_COMP
+    ADMIN --> ADMIN_COMP
+
+    %% Authentication Flow
+    AUTH_COMP --> CLERK
+    CLERK --> CLERK_WEBHOOK
+    CLERK_WEBHOOK --> USER_SERVICE
+    USER_SERVICE --> USER_DB
+    USER_SERVICE --> STRIPE_SERVICE
+    STRIPE_SERVICE --> STRIPE
+
+    %% Payment Flow
+    PRICING_COMP --> CHECKOUT
+    CHECKOUT --> STRIPE
+    STRIPE --> STRIPE_WEBHOOK
+    STRIPE_WEBHOOK --> SUB_DB
+    STRIPE_WEBHOOK --> CREDIT_DB
+    STRIPE_WEBHOOK --> USER_DB
+
+    %% AI Service Flow
+    DASHBOARD --> CHAT_API
+    CHAT_API --> TOKEN_CONSUME
+    TOKEN_CONSUME --> TOKEN_SERVICE
+    TOKEN_SERVICE --> TOKEN_RULES
+    TOKEN_SERVICE --> USER_CREDITS
+    TOKEN_SERVICE --> TOKEN_LOGS
+    TOKEN_SERVICE --> GROQ
+    GROQ --> CHAT_API
+
+    %% Credit Management
+    USER_CREDITS --> CREDIT_DB
+    BILLING_COMP --> BILLING_PORTAL
+    BILLING_PORTAL --> STRIPE
+
+    %% Analytics Flow
+    USAGE_COMP --> USAGE_ANALYTICS
+    USAGE_ANALYTICS --> ANALYTICS_SERVICE
+    ANALYTICS_SERVICE --> ANALYTICS_DB
+    ANALYTICS_SERVICE --> TOKEN_LOGS
+    ANALYTICS_SERVICE --> USAGE_DB
+
+    %% Admin Management
+    ADMIN_COMP --> ADMIN_PRODUCTS
+    ADMIN_COMP --> ADMIN_STRIPE
+    ADMIN_COMP --> ADMIN_RULES
+    ADMIN_PRODUCTS --> PRODUCT_DB
+    ADMIN_STRIPE --> STRIPE
+    ADMIN_RULES --> TOKEN_RULES
+
+    %% Database Relationships
+    USER_DB --> SUB_DB
+    USER_DB --> CREDIT_DB
+    USER_DB --> USAGE_DB
+    USER_DB --> TOKEN_LOGS
+    PRODUCT_DB --> SUB_DB
+    TOKEN_RULES --> TOKEN_LOGS
+
+    %% Data Storage
+    USER_SERVICE --> POSTGRES
+    STRIPE_SERVICE --> POSTGRES
+    TOKEN_SERVICE --> POSTGRES
+    ANALYTICS_SERVICE --> POSTGRES
+
+    %% Styling
+    classDef external fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef frontend fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef api fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef database fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef service fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+
+    class CLERK,STRIPE,GROQ,POSTGRES external
+    class LANDING,PRICING,DASHBOARD,ADMIN,AUTH_COMP,BILLING_COMP,USAGE_COMP,PRICING_COMP,ADMIN_COMP frontend
+    class CLERK_WEBHOOK,STRIPE_WEBHOOK,CHECKOUT,BILLING_PORTAL,CHAT_API,TOKEN_CONSUME,USER_CREDITS,USAGE_ANALYTICS,ADMIN_PRODUCTS,ADMIN_STRIPE,ADMIN_RULES api
+    class USER_DB,SUB_DB,PRODUCT_DB,CREDIT_DB,USAGE_DB,TOKEN_RULES,TOKEN_LOGS,ANALYTICS_DB database
+    class TOKEN_SERVICE,STRIPE_SERVICE,USER_SERVICE,ANALYTICS_SERVICE service

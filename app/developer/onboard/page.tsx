@@ -9,8 +9,22 @@ import { Progress } from "@/components/ui/progress"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { CreditCard, Shield, DollarSign } from "lucide-react"
+import Script from "next/script"
+
+// Declare Stripe Connect types
+declare global {
+  interface Window {
+    StripeConnect: any;
+  }
+}
 
 export const dynamic = "force-dynamic"
+declare global {
+  interface Window {
+    StripeConnect: any;
+  }
+}
+
 
 export default function DeveloperOnboardPage() {
   const [loading, setLoading] = useState(false)
@@ -44,33 +58,45 @@ export default function DeveloperOnboardPage() {
 
   useEffect(() => {
     if (showEmbeddedOnboarding && accountSession) {
-      // Check if StripeConnect is already loaded
-      if (window.StripeConnect) {
-        initializeEmbeddedOnboarding()
-        return
-      }
-
-      const script = document.createElement("script")
-      // Use the Connect onboarding script
-      script.src = "https://connect-js.stripe.com/v1.0/connect.js"
-      script.async = true
-      script.onload = () => {
-        initializeEmbeddedOnboarding()
-      }
-      script.onerror = () => {
-        console.error("[v0] Failed to load Stripe Connect script")
-        setError("Failed to load payment provider. Please refresh and try again.")
-        setShowEmbeddedOnboarding(false)
-      }
-      document.head.appendChild(script)
-
-      return () => {
-        if (document.head.contains(script)) {
-          document.head.removeChild(script)
+      // Add a small delay to ensure the script is fully loaded
+      const timer = setTimeout(() => {
+        if (window.StripeConnect) {
+          initializeEmbeddedOnboarding()
+        } else {
+          console.error("[v0] StripeConnect not available after script load")
+          // Try loading the script manually
+          loadStripeScript()
         }
-      }
+      }, 500)
+
+      return () => clearTimeout(timer)
     }
   }, [showEmbeddedOnboarding, accountSession])
+
+  const loadStripeScript = () => {
+    // Check if script already exists
+    const existingScript = document.getElementById('stripe-connect-js')
+    if (existingScript) {
+      existingScript.remove()
+    }
+
+    const script = document.createElement("script")
+    script.id = 'stripe-connect-js'
+    script.src = "https://connect-js.stripe.com/v1.0/connect.js"
+    script.async = true
+    script.onload = () => {
+      console.log("[v0] Stripe Connect script loaded")
+      setTimeout(() => {
+        initializeEmbeddedOnboarding()
+      }, 100)
+    }
+    script.onerror = () => {
+      console.error("[v0] Failed to load Stripe Connect script")
+      setError("Failed to load payment provider. Please refresh and try again.")
+      setShowEmbeddedOnboarding(false)
+    }
+    document.head.appendChild(script)
+  }
 
   const checkOnboardingStatus = async () => {
     try {
@@ -95,17 +121,25 @@ export default function DeveloperOnboardPage() {
 
   const initializeEmbeddedOnboarding = () => {
     console.log("[v0] Initializing embedded onboarding...")
-    console.log("[v0] StripeConnect available:", !!window.StripeConnect)
+    console.log("[v0] StripeConnect type:", typeof window.StripeConnect)
     console.log("[v0] Account session available:", !!accountSession)
     console.log("[v0] Publishable key:", process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ? "Set" : "Not set")
 
-    if (typeof window !== "undefined" && window.StripeConnect && accountSession) {
+    if (typeof window !== "undefined" && accountSession) {
       try {
         if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
           throw new Error("Stripe publishable key is not configured")
         }
 
-        const stripeConnectInstance = window.StripeConnect(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+        // Check if StripeConnect is a constructor or needs to be called differently
+        let stripeConnectInstance
+        if (typeof window.StripeConnect === 'function') {
+          stripeConnectInstance = window.StripeConnect(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+        } else if (window.StripeConnect && window.StripeConnect.init) {
+          stripeConnectInstance = window.StripeConnect.init(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+        } else {
+          throw new Error("StripeConnect is not properly initialized")
+        }
 
         const embeddedComponentManager = stripeConnectInstance.create("account-onboarding", {
           collectionOptions: {
@@ -181,34 +215,50 @@ export default function DeveloperOnboardPage() {
 
   if (showEmbeddedOnboarding) {
     return (
-      <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-        <div className="w-full max-w-4xl">
-          <div className="mb-6 text-center">
-            <h1 className="text-3xl font-bold text-foreground">Complete Your Account Setup</h1>
-            <p className="text-muted-foreground mt-2">Fill out the information below to start receiving payouts</p>
-          </div>
+      <>
+        <Script
+          src="https://connect-js.stripe.com/v1.0/connect.js"
+          strategy="lazyOnload"
+          onLoad={() => {
+            console.log("[v0] Stripe Connect script loaded via Next.js Script component")
+            setTimeout(() => {
+              initializeEmbeddedOnboarding()
+            }, 100)
+          }}
+          onError={() => {
+            console.error("[v0] Failed to load Stripe Connect script")
+            setError("Failed to load payment provider. Please refresh and try again.")
+          }}
+        />
+        <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
+          <div className="w-full max-w-4xl">
+            <div className="mb-6 text-center">
+              <h1 className="text-3xl font-bold text-foreground">Complete Your Account Setup</h1>
+              <p className="text-muted-foreground mt-2">Fill out the information below to start receiving payouts</p>
+            </div>
 
-          <Card>
-            <CardContent className="p-6">
-              <div id="account-onboarding" className="min-h-[600px]">
-                <div className="flex items-center justify-center h-[600px]">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-muted-foreground">Loading Stripe Connect onboarding...</p>
-                    <p className="text-xs text-muted-foreground mt-2">This may take a few seconds</p>
+            <Card>
+              <CardContent className="p-6">
+                <div id="account-onboarding" className="min-h-[600px]">
+                  <div className="flex items-center justify-center h-[600px]">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                      <p className="text-muted-foreground">Loading Stripe Connect onboarding...</p>
+                      <p className="text-xs text-muted-foreground mt-2">This may take a few seconds</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <div className="mt-4 text-center">
-            <Button variant="outline" onClick={() => setShowEmbeddedOnboarding(false)}>
-              ← Back to Setup
-            </Button>
+            <div className="mt-4 text-center">
+              <Button variant="outline" onClick={() => setShowEmbeddedOnboarding(false)}>
+                ← Back to Setup
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      </>
     )
   }
 

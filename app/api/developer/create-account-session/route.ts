@@ -1,15 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
 import Stripe from "stripe"
-
-export async function POST(request: NextRequest) {
+import { withTrace, traceExternal } from "@/lib/observability"
+export const POST = withTrace(async (request: NextRequest, { requestId }) => {
   try {
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: "STRIPE_SECRET_KEY environment variable is not configured" }, { status: 500 })
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: "2024-12-18.acacia",
+      apiVersion: "2025-07-30.basil",
     })
     const { email, name } = await request.json()
 
@@ -46,28 +46,21 @@ export async function POST(request: NextRequest) {
     // Create Stripe account if it doesn't exist
     if (!stripeAccountId) {
       console.log("[v0] Creating new Stripe account")
-      const account = await stripe.accounts.create({
-        email: email,
-        controller: {
-          // Platform handles fee collection
-          fees: {
-            payer: "application" as const,
+      const account = await traceExternal({
+        requestId,
+        target: "stripe",
+        operation: "accounts.create",
+        metadata: { email, name },
+        exec: () => stripe.accounts.create({
+          email: email,
+          controller: {
+            fees: { payer: "application" as const },
+            losses: { payments: "application" as const },
+            stripe_dashboard: { type: "express" as const },
           },
-          // Platform must control losses when using express dashboard
-          losses: {
-            payments: "application" as const,
-          },
-          // Use express dashboard for account management
-          stripe_dashboard: {
-            type: "express" as const,
-          },
-        },
-        capabilities: {
-          transfers: { requested: true },
-        },
-        business_profile: {
-          name: name || undefined,
-        },
+          capabilities: { transfers: { requested: true } },
+          business_profile: { name: name || undefined },
+        })
       })
 
       stripeAccountId = account.id
@@ -106,11 +99,15 @@ export async function POST(request: NextRequest) {
 
     // Create account session for embedded onboarding
     console.log("[v0] Creating account session for account:", stripeAccountId)
-    const accountSession = await stripe.accountSessions.create({
-      account: stripeAccountId,
-      components: {
-        account_onboarding: { enabled: true },
-      },
+    const accountSession = await traceExternal({
+      requestId,
+      target: "stripe",
+      operation: "accountSessions.create",
+      metadata: { account: stripeAccountId },
+      exec: () => stripe.accountSessions.create({
+        account: stripeAccountId!,
+        components: { account_onboarding: { enabled: true } },
+      })
     })
 
     console.log("[v0] Account session created successfully")
@@ -152,4 +149,4 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     )
   }
-}
+})

@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         ],
         success_url: successUrl || `${process.env.NEXT_PUBLIC_APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}/cancel`,
-        application_fee_percent: applicationFeePercent, // 5% platform fee
+        //application_fee_percent: applicationFeePercent, // 5% platform fee
         metadata: {
           connected_account_id: connectedAccountId,
           platform_fee_percent: applicationFeePercent.toString(),

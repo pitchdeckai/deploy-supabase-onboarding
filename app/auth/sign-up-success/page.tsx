@@ -11,13 +11,13 @@ export default function SignUpSuccessPage() {
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <CheckCircle className="h-6 w-6 text-primary" />
               </div>
-              <CardTitle className="text-2xl">Check Your Email</CardTitle>
-              <CardDescription>We&apos;ve sent you a confirmation link</CardDescription>
+              <CardTitle className="text-2xl">Sign Up Successful!</CardTitle>
+              <CardDescription>You&apos;re in! Welcome to the platform.</CardDescription>
             </CardHeader>
             <CardContent className="text-center">
               <p className="text-sm text-muted-foreground">
-                Please check your email and click the confirmation link to activate your account. Once confirmed,
-                you&apos;ll be able to set up your payout information.
+                Your account has been created successfully. You can now start setting up your payout information
+                and begin using the platform.
               </p>
             </CardContent>
           </Card>

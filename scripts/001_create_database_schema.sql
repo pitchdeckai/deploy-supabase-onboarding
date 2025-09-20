@@ -1,5 +1,5 @@
 -- Consolidated Database Schema for Stripe Connect SaaS Platform
--- Generated automatically on 2025-08-25T07:08:33.100Z
+-- Generated automatically on 2025-07-30.basil
 
 CREATE TABLE commissions (
   id UUID NOT NULL DEFAULT gen_random_uuid(),

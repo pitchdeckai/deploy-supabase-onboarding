@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { TestCredentialsHelper } from "@/components/dev/test-credentials"
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("")
@@ -33,7 +34,7 @@ export default function SignUpPage() {
     }
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -45,7 +46,9 @@ export default function SignUpPage() {
         },
       })
       if (error) throw error
-      router.push("/auth/sign-up-success")
+
+      // Skip email verification - redirect directly to dashboard
+      router.push("/developer/dashboard")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {
@@ -55,8 +58,9 @@ export default function SignUpPage() {
 
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-      <div className="w-full max-w-sm">
-        <div className="flex flex-col gap-6">
+      <div className="w-full max-w-lg">
+        <TestCredentialsHelper />
+        <div className="flex flex-col gap-6 max-w-sm mx-auto">
           <div className="text-center">
             <h1 className="text-3xl font-bold text-foreground">Join as Developer</h1>
             <p className="text-muted-foreground mt-2">Start receiving payouts from your referrals</p>

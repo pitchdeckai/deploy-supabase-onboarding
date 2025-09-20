@@ -1,5 +1,5 @@
 # Active Webhook Configuration
-**Generated**: 2025-08-25T20:18:46Z
+**Generated**: 2025-07-30.basil
 
 ## 🟢 Current ngrok Status
 - **Status**: ONLINE
