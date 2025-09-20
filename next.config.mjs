@@ -11,7 +11,30 @@ const nextConfig = {
   },
   // Allow all development origins to prevent cross-origin blocking
   experimental: {
-    allowedDevOrigins: ['api.forgedai.com', 'localhost:3000', '*.vercel.app'],
+    allowedDevOrigins: ['api.forgedai.com', 'localhost:3000', '*.vercel.app', 'js.stripe.com', 'connect.stripe.com', 'dashboard.stripe.com', '*.stripe.com', '*'],
+  },
+  // Add external script domains for Stripe
+  async rewrites() {
+    return [
+      {
+        source: '/stripe-js/:path*',
+        destination: 'https://js.stripe.com/:path*',
+      },
+    ];
+  },
+  // Configure external domains for scripts
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://connect.stripe.com;",
+          },
+        ],
+      },
+    ];
   },
   // Add CORS headers for API routes
   async headers() {

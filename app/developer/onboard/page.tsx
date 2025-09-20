@@ -128,37 +128,69 @@ export default function DeveloperOnboardPage() {
           throw new Error("Stripe publishable key is not configured")
         }
 
-        // Wait for the global loadConnectAndInitialize to be available
-        const loadConnectAndInitialize = (window as any).loadConnectAndInitialize
-        if (!loadConnectAndInitialize) {
-          console.log("[v0] Waiting for Stripe Connect script to load...")
-          // Wait up to 5 seconds for the script to load
+        // First check if we have the Stripe object (from regular Stripe.js)
+        // The Connect embedded components use the regular Stripe.js library
+        let stripeConnectInstance = null
+        
+        // Check for the Stripe global (this is what the script actually provides)
+        if (typeof (window as any).Stripe === 'function') {
+          console.log("[v0] Stripe global found, initializing...")
+          const stripe = (window as any).Stripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+          
+          // For embedded Connect components, we use stripe.connectEmbeddedComponentManager
+          if (stripe.connectEmbeddedComponentManager) {
+            console.log("[v0] Using stripe.connectEmbeddedComponentManager")
+            stripeConnectInstance = stripe.connectEmbeddedComponentManager({
+              fetchClientSecret: fetchClientSecret,
+              appearance: {
+                theme: 'stripe',
+                variables: { 
+                  colorPrimary: '#635bff',
+                  colorText: '#30313d'
+                }
+              }
+            })
+          } else {
+            throw new Error("stripe.connectEmbeddedComponentManager not available. Check Stripe.js version.")
+          }
+        } else {
+          // Fallback: Wait for loadConnectAndInitialize (if using connect.js specifically)
+          console.log("[v0] Waiting for Stripe script to load...")
           let attempts = 0
-          while (!(window as any).loadConnectAndInitialize && attempts < 50) {
+          while (!(window as any).Stripe && attempts < 50) {
             await new Promise(resolve => setTimeout(resolve, 100))
             attempts++
           }
-          if (!(window as any).loadConnectAndInitialize) {
-            throw new Error("Stripe Connect script failed to load. loadConnectAndInitialize is not available.")
+          
+          if (!(window as any).Stripe) {
+            throw new Error("Stripe script failed to load. Make sure the script URL is correct and not blocked.")
+          }
+          
+          console.log("[v0] Stripe loaded after waiting")
+          const stripe = (window as any).Stripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+          
+          if (stripe.connectEmbeddedComponentManager) {
+            stripeConnectInstance = stripe.connectEmbeddedComponentManager({
+              fetchClientSecret: fetchClientSecret,
+              appearance: {
+                theme: 'stripe',
+                variables: { 
+                  colorPrimary: '#635bff',
+                  colorText: '#30313d'
+                }
+              }
+            })
+          } else {
+            throw new Error("stripe.connectEmbeddedComponentManager not available")
           }
         }
 
-        console.log("[v0] loadConnectAndInitialize is available")
+        if (!stripeConnectInstance) {
+          throw new Error("Failed to initialize Stripe Connect instance")
+        }
 
-        // Initialize StripeConnect using the global function
-        const stripeConnectInstance = (window as any).loadConnectAndInitialize({
-          publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-          fetchClientSecret: fetchClientSecret,
-          appearance: {
-            theme: 'stripe',
-            variables: { 
-              colorPrimary: '#635bff',
-              colorText: '#30313d'
-            }
-          }
-        })
-
-        console.log("[v0] StripeConnect instance methods:", Object.getOwnPropertyNames(stripeConnectInstance))
+        console.log("[v0] StripeConnect instance created successfully")
+        console.log("[v0] Instance methods:", Object.getOwnPropertyNames(stripeConnectInstance))
 
         // Create the account-onboarding component
         console.log("[v0] Creating account-onboarding component...")
@@ -252,14 +284,15 @@ export default function DeveloperOnboardPage() {
     return (
       <>
         <Script
-          src="https://js.stripe.com/v1/connect.js"
+          src="https://js.stripe.com/v3/"
           strategy="lazyOnload"
           onLoad={() => {
-            console.log("[v0] Stripe Connect script loaded via Next.js Script component")
-            console.log("[v0] loadConnectAndInitialize available:", typeof (window as any).loadConnectAndInitialize === 'function')
+            console.log("[v0] Stripe.js v3 loaded successfully")
+            console.log("[v0] Stripe available:", typeof (window as any).Stripe === 'function')
+            console.log("[v0] Window Stripe methods:", (window as any).Stripe ? Object.getOwnPropertyNames((window as any).Stripe) : 'Not available')
           }}
           onError={() => {
-            console.error("[v0] Failed to load Stripe Connect script")
+            console.error("[v0] Failed to load Stripe.js script")
             setError("Failed to load payment provider. Please refresh and try again.")
           }}
         />
