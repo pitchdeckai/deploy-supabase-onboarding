@@ -19,11 +19,6 @@ declare global {
 }
 
 export const dynamic = "force-dynamic"
-declare global {
-  interface Window {
-    StripeConnect: any;
-  }
-}
 
 
 export default function DeveloperOnboardPage() {
@@ -32,7 +27,6 @@ export default function DeveloperOnboardPage() {
   const [businessName, setBusinessName] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [showEmbeddedOnboarding, setShowEmbeddedOnboarding] = useState(false)
-  const [accountSession, setAccountSession] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
 
@@ -57,46 +51,17 @@ export default function DeveloperOnboardPage() {
   }, [router])
 
   useEffect(() => {
-    if (showEmbeddedOnboarding && accountSession) {
-      // Add a small delay to ensure the script is fully loaded
-      const timer = setTimeout(() => {
-        if (window.StripeConnect) {
-          initializeEmbeddedOnboarding()
-        } else {
-          console.error("[v0] StripeConnect not available after script load")
-          // Try loading the script manually
-          loadStripeScript()
-        }
-      }, 500)
+    if (showEmbeddedOnboarding && user) {
+      // Call the async initialization function
+      initializeEmbeddedOnboarding().catch(error => {
+        console.error("[v0] Failed to initialize onboarding:", error)
+        setError(error.message || "Failed to initialize onboarding")
+        setShowEmbeddedOnboarding(false)
+      })
+    }
+  }, [showEmbeddedOnboarding, user, businessName])
 
-      return () => clearTimeout(timer)
-    }
-  }, [showEmbeddedOnboarding, accountSession])
-
-  const loadStripeScript = () => {
-    // Check if script already exists
-    const existingScript = document.getElementById('stripe-connect-js')
-    if (existingScript) {
-      existingScript.remove()
-    }
-
-    const script = document.createElement("script")
-    script.id = 'stripe-connect-js'
-    script.src = "https://connect-js.stripe.com/v1.0/connect.js"
-    script.async = true
-    script.onload = () => {
-      console.log("[v0] Stripe Connect script loaded")
-      setTimeout(() => {
-        initializeEmbeddedOnboarding()
-      }, 100)
-    }
-    script.onerror = () => {
-      console.error("[v0] Failed to load Stripe Connect script")
-      setError("Failed to load payment provider. Please refresh and try again.")
-      setShowEmbeddedOnboarding(false)
-    }
-    document.head.appendChild(script)
-  }
+  // Script loading is now handled by Next.js Script component
 
   const checkOnboardingStatus = async () => {
     try {
@@ -119,67 +84,15 @@ export default function DeveloperOnboardPage() {
     }
   }
 
-  const initializeEmbeddedOnboarding = () => {
-    console.log("[v0] Initializing embedded onboarding...")
-    console.log("[v0] StripeConnect type:", typeof window.StripeConnect)
-    console.log("[v0] Account session available:", !!accountSession)
-    console.log("[v0] Publishable key:", process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ? "Set" : "Not set")
-
-    if (typeof window !== "undefined" && accountSession) {
-      try {
-        if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
-          throw new Error("Stripe publishable key is not configured")
-        }
-
-        // Check if StripeConnect is a constructor or needs to be called differently
-        let stripeConnectInstance
-        if (typeof window.StripeConnect === 'function') {
-          stripeConnectInstance = window.StripeConnect(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-        } else if (window.StripeConnect && window.StripeConnect.init) {
-          stripeConnectInstance = window.StripeConnect.init(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-        } else {
-          throw new Error("StripeConnect is not properly initialized")
-        }
-
-        const embeddedComponentManager = stripeConnectInstance.create("account-onboarding", {
-          collectionOptions: {
-            fields: 'currently_due',
-            futureRequirements: 'include',
-          },
-          onExit: () => {
-            console.log("[v0] User exited onboarding")
-            setShowEmbeddedOnboarding(false)
-            // Check if onboarding was completed
-            checkOnboardingStatus()
-          },
-        })
-
-        embeddedComponentManager.setClientSecret(accountSession)
-        embeddedComponentManager.mount("#account-onboarding")
-        console.log("[v0] Embedded onboarding mounted successfully")
-      } catch (error) {
-        console.error("[v0] Error initializing embedded onboarding:", error)
-        setError(error instanceof Error ? error.message : "Failed to initialize onboarding. Please try again.")
-        setShowEmbeddedOnboarding(false)
-      }
-    } else {
-      console.warn("[v0] Missing requirements for embedded onboarding")
-      if (!window.StripeConnect) {
-        console.warn("[v0] StripeConnect not loaded yet")
-      }
-      if (!accountSession) {
-        console.warn("[v0] Account session not available")
-      }
-    }
-  }
-
-  const startOnboarding = async () => {
-    if (!user) return
-
-    setLoading(true)
-    setError(null)
-
+  // Function to fetch client secret for the current user
+  const fetchClientSecret = async () => {
     try {
+      if (!user) {
+        throw new Error("User not authenticated")
+      }
+
+      console.log("[v0] Fetching client secret for user:", user.email)
+      
       const res = await fetch("/api/developer/create-account-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -195,8 +108,130 @@ export default function DeveloperOnboardPage() {
         throw new Error(data.error || "Failed to create account session")
       }
 
-      console.log("[v0] Account session received:", data.clientSecret ? "Yes" : "No")
-      setAccountSession(data.clientSecret)
+      console.log("[v0] Client secret fetched successfully")
+      return data.clientSecret
+    } catch (error) {
+      console.error("[v0] Error fetching client secret:", error)
+      setError(error instanceof Error ? error.message : "Failed to fetch account session")
+      return undefined
+    }
+  }
+
+  const initializeEmbeddedOnboarding = async () => {
+    console.log("[v0] Initializing embedded onboarding...")
+    console.log("[v0] User available:", !!user)
+    console.log("[v0] Publishable key:", process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ? "Set" : "Not set")
+
+    if (typeof window !== "undefined" && user) {
+      try {
+        if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
+          throw new Error("Stripe publishable key is not configured")
+        }
+
+        // Wait for the global loadConnectAndInitialize to be available
+        const loadConnectAndInitialize = (window as any).loadConnectAndInitialize
+        if (!loadConnectAndInitialize) {
+          console.log("[v0] Waiting for Stripe Connect script to load...")
+          // Wait up to 5 seconds for the script to load
+          let attempts = 0
+          while (!(window as any).loadConnectAndInitialize && attempts < 50) {
+            await new Promise(resolve => setTimeout(resolve, 100))
+            attempts++
+          }
+          if (!(window as any).loadConnectAndInitialize) {
+            throw new Error("Stripe Connect script failed to load. loadConnectAndInitialize is not available.")
+          }
+        }
+
+        console.log("[v0] loadConnectAndInitialize is available")
+
+        // Initialize StripeConnect using the global function
+        const stripeConnectInstance = (window as any).loadConnectAndInitialize({
+          publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+          fetchClientSecret: fetchClientSecret,
+          appearance: {
+            theme: 'stripe',
+            variables: { 
+              colorPrimary: '#635bff',
+              colorText: '#30313d'
+            }
+          }
+        })
+
+        console.log("[v0] StripeConnect instance methods:", Object.getOwnPropertyNames(stripeConnectInstance))
+
+        // Create the account-onboarding component
+        console.log("[v0] Creating account-onboarding component...")
+        const embeddedComponent = stripeConnectInstance.create("account-onboarding")
+        
+        console.log("[v0] Component created:", embeddedComponent)
+        console.log("[v0] Component type:", typeof embeddedComponent)
+        console.log("[v0] Available methods:", Object.getOwnPropertyNames(embeddedComponent || {}))
+
+        // Verify mount method exists
+        if (!embeddedComponent || typeof embeddedComponent.mount !== 'function') {
+          console.error("[v0] Mount method not available. Component:", embeddedComponent)
+          console.error("[v0] Available methods:", embeddedComponent ? Object.getOwnPropertyNames(embeddedComponent) : 'Component is null')
+          throw new Error("Component does not have mount method. Check Stripe Connect initialization.")
+        }
+
+        // Mount the component
+        const container = document.getElementById("account-onboarding")
+        if (!container) {
+          throw new Error("Container element #account-onboarding not found in DOM")
+        }
+
+        console.log("[v0] Mounting component to #account-onboarding...")
+        embeddedComponent.mount("#account-onboarding")
+        console.log("[v0] Embedded onboarding mounted successfully")
+
+        // Add event listeners using the on() method
+        if (typeof embeddedComponent.on === 'function') {
+          embeddedComponent.on('ready', () => {
+            console.log("[v0] Onboarding component ready")
+          })
+          
+          embeddedComponent.on('exit', () => {
+            console.log("[v0] User exited onboarding")
+            setShowEmbeddedOnboarding(false)
+            checkOnboardingStatus()
+          })
+
+          embeddedComponent.on('complete', () => {
+            console.log("[v0] Onboarding complete")
+            // Redirect to dashboard after completion
+            setTimeout(() => {
+              router.push("/developer/dashboard")
+            }, 1000)
+          })
+        } else {
+          console.warn("[v0] Event listener 'on' method not available on component")
+        }
+      } catch (error) {
+        console.error("[v0] Error initializing embedded onboarding:", error)
+        setError(error instanceof Error ? error.message : "Failed to initialize onboarding. Please try again.")
+        setShowEmbeddedOnboarding(false)
+      }
+    } else {
+      console.warn("[v0] Missing requirements for embedded onboarding")
+      if (!window.StripeConnect) {
+        console.warn("[v0] StripeConnect not loaded yet")
+      }
+      if (!user) {
+        console.warn("[v0] User not available")
+      }
+    }
+  }
+
+  const startOnboarding = async () => {
+    if (!user) return
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      // Just show the embedded onboarding - the fetchClientSecret function will handle the API call
+      console.log("[v0] Starting embedded onboarding for user:", user.email)
       setShowEmbeddedOnboarding(true)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
@@ -217,13 +252,11 @@ export default function DeveloperOnboardPage() {
     return (
       <>
         <Script
-          src="https://connect-js.stripe.com/v1.0/connect.js"
+          src="https://js.stripe.com/v1/connect.js"
           strategy="lazyOnload"
           onLoad={() => {
             console.log("[v0] Stripe Connect script loaded via Next.js Script component")
-            setTimeout(() => {
-              initializeEmbeddedOnboarding()
-            }, 100)
+            console.log("[v0] loadConnectAndInitialize available:", typeof (window as any).loadConnectAndInitialize === 'function')
           }}
           onError={() => {
             console.error("[v0] Failed to load Stripe Connect script")
