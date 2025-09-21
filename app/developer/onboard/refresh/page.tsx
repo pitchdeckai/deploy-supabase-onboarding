@@ -1,12 +1,13 @@
-"use client"
+"use client";
 
-export const dynamic = "force-dynamic"
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertCircle, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, RefreshCw } from "lucide-react"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+export const dynamic = "force-dynamic";
 
 export default function OnboardingRefreshPage() {
   const [loading, setLoading] = useState(false)
@@ -14,35 +15,36 @@ export default function OnboardingRefreshPage() {
   const router = useRouter()
 
   const refreshOnboarding = async () => {
-    setLoading(true)
-    setError(null)
-
+    setLoading(true);
+    setError(null);
+    
     try {
-      // Get developer ID from localStorage or session
-      const developerId = localStorage.getItem("developerId")
-      if (!developerId) {
-        router.push("/developer/onboard")
-        return
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
       }
-
-      const res = await fetch("/api/developer/onboarding-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ developerId }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to refresh onboarding")
+      
+      const { data: developer } = await supabase
+        .from("developers")
+        .select("stripe_account_id")
+        .eq("user_id", user.id)
+        .single();
+      
+      if (!developer?.stripe_account_id) {
+        // No account exists, redirect to onboarding
+        router.push("/developer/onboard");
+        return;
       }
-
-      // Redirect to new onboarding link
-      window.location.href = data.onboardingUrl
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      
+      // For embedded components, we just need to redirect back to onboard page
+      // The page will automatically re-fetch the session via the hook
+      router.push("/developer/onboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to refresh onboarding");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -70,7 +72,7 @@ export default function OnboardingRefreshPage() {
                   Refreshing...
                 </>
               ) : (
-                "Continue Onboarding"
+                "Resume Onboarding"
               )}
             </Button>
             <Button variant="outline" onClick={() => router.push("/developer/dashboard")} className="w-full">

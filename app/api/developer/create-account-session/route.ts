@@ -11,10 +11,31 @@ export const POST = withTrace(async (request: NextRequest, { requestId }) => {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
       apiVersion: "2025-07-30.basil",
     })
-    const { email, name } = await request.json()
+    const { email, name, accountId } = await request.json()
 
+    // If accountId is provided, use it directly (for refresh flow)
+    if (accountId) {
+      console.log("[v0] Using provided account ID:", accountId)
+      const accountSession = await traceExternal({
+        requestId,
+        target: "stripe",
+        operation: "accountSessions.create",
+        metadata: { account: accountId },
+        exec: () => stripe.accountSessions.create({
+          account: accountId,
+          components: { account_onboarding: { enabled: true } },
+        })
+      })
+
+      return NextResponse.json({
+        clientSecret: accountSession.client_secret,
+        accountId: accountId,
+      })
+    }
+
+    // Otherwise, require email for new account creation
     if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 })
+      return NextResponse.json({ error: "Email or accountId is required" }, { status: 400 })
     }
 
     console.log("[v0] Creating account session for:", email)

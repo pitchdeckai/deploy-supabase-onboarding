@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       throw new Error("Failed to store developer account")
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://api.forgedai.com"
     const refreshUrl = `${baseUrl}/developer/onboard/refresh`
     const returnUrl = `${baseUrl}/developer/dashboard`
 

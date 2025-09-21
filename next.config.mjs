@@ -22,31 +22,32 @@ const nextConfig = {
       },
     ];
   },
-  // Configure external domains for scripts
+  // Configure security headers and CORS
   async headers() {
     return [
       {
+        // Apply security headers to all pages
         source: '/:path*',
-        headers: [
+headers: [
+          // Temporarily disabled CSP for debugging
+          // {
+          //   key: 'Content-Security-Policy',
+          //   value: "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://connect.stripe.com https://q.stripe.com https://hooks.stripe.com; frame-src 'self' https://connect.stripe.com https://js.stripe.com; connect-src 'self' https://api.stripe.com https://connect.stripe.com https://hooks.stripe.com https://api.forgedai.com https://qgpybicovgofmklvsyts.supabase.co wss://qgpybicovgofmklvsyts.supabase.co;",
+          // },
           {
-            key: 'Content-Security-Policy',
-            value: "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://connect.stripe.com;",
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
           },
         ],
       },
-    ];
-  },
-  // Add CORS headers for API routes
-  async headers() {
-    return [
       {
-        // Apply to all API routes
+        // CORS headers for API routes
         source: '/api/:path*',
         headers: [
           { key: 'Access-Control-Allow-Credentials', value: 'true' },
-          { key: 'Access-Control-Allow-Origin', value: '*' }, // Allow all origins for dev; change to 'https://api.forgeai.com' if needed
+          { key: 'Access-Control-Allow-Origin', value: '*' },
           { key: 'Access-Control-Allow-Methods', value: 'GET,OPTIONS,PATCH,DELETE,POST,PUT' },
-          { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
+          { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, stripe-signature' },
         ],
       },
     ];

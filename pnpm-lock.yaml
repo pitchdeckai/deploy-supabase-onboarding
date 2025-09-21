@@ -96,11 +96,11 @@ importers:
         specifier: 1.1.6
         version: 1.1.6(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@stripe/connect-js':
-        specifier: ^3.3.29
-        version: 3.3.29
+        specifier: 3.3.5
+        version: 3.3.5
       '@stripe/react-connect-js':
-        specifier: ^3.3.27
-        version: 3.3.27(@stripe/connect-js@3.3.29)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        specifier: 3.3.7
+        version: 3.3.7(@stripe/connect-js@3.3.5)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@supabase/ssr':
         specifier: latest
         version: 0.7.0(@supabase/supabase-js@2.56.0)
@@ -165,8 +165,8 @@ importers:
         specifier: ^1.7.4
         version: 1.7.4(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       stripe:
-        specifier: 13.4.0
-        version: 13.4.0
+        specifier: 16.11.0
+        version: 16.11.0
       tailwind-merge:
         specifier: ^2.5.5
         version: 2.5.5
@@ -1370,13 +1370,13 @@ packages:
   '@radix-ui/rect@1.1.1':
     resolution: {integrity: sha512-HPwpGIzkl28mWyZqG52jiqDJ12waP11Pa1lGoiyUkIEuMLBP0oeK/C89esbXrxsky5we7dfd8U58nm0SgAWpVw==}
 
-  '@stripe/connect-js@3.3.29':
-    resolution: {integrity: sha512-Gwq4lWw7InFPQbdKbxvOBBpqIEvJyEzcREC9mWnukSeXuwf6gzFD3cT/LJU6+F/2v3w2Y5S+kcsAu07LCkyjzQ==}
+  '@stripe/connect-js@3.3.5':
+    resolution: {integrity: sha512-wPr5y5XxSsXAbyonSz6jWsZru62PYOoTxNDxVH467+1PgiYSBqq0jvBItGzI/2bGFe89GTcY/kwqABe0Qg3orw==}
 
-  '@stripe/react-connect-js@3.3.27':
-    resolution: {integrity: sha512-DjeliLWqEYH2nKtdsOLP4EQ2KIIe+Dltw7qAZ0F0qS1ZRHWveeOl0bEZx5AYR+U8RG3UbYIA/j4qKeBfqo3d9Q==}
+  '@stripe/react-connect-js@3.3.7':
+    resolution: {integrity: sha512-TM7OVXFv1Ed24x76VtmHvN1mfDsMVmJOzhDpFSRY/o4vegwnmmkfRD6OOEIBSaSXDagYZUgqGkKqEmss1lozKg==}
     peerDependencies:
-      '@stripe/connect-js': '>=3.3.29'
+      '@stripe/connect-js': '>=3.3.5'
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
 
@@ -2507,8 +2507,8 @@ packages:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
     engines: {node: '>=8'}
 
-  stripe@13.4.0:
-    resolution: {integrity: sha512-UxvRzu46AJALIueMH3/jn++qJlOoM5s+uoHXagr36xTFOj7Knrh28WFiI73dMDkngBElK68cG3WI+LgRulHw6g==}
+  stripe@16.11.0:
+    resolution: {integrity: sha512-Rl4S2UAU/uWr3diETk3wkpXSe7LBPJ4BdXRzto5XVGGUhvLi8Q0MShwI5yhPH6Cdv2kmLu/Yl14QMlHgeRp7Qw==}
     engines: {node: '>=12.*'}
 
   styled-jsx@5.1.6:
@@ -3812,11 +3812,11 @@ snapshots:
 
   '@radix-ui/rect@1.1.1': {}
 
-  '@stripe/connect-js@3.3.29': {}
+  '@stripe/connect-js@3.3.5': {}
 
-  '@stripe/react-connect-js@3.3.27(@stripe/connect-js@3.3.29)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+  '@stripe/react-connect-js@3.3.7(@stripe/connect-js@3.3.5)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@stripe/connect-js': 3.3.29
+      '@stripe/connect-js': 3.3.5
       react: 19.0.0
       react-dom: 19.0.0(react@19.0.0)
 
@@ -4958,7 +4958,7 @@ snapshots:
 
   strip-json-comments@3.1.1: {}
 
-  stripe@13.4.0:
+  stripe@16.11.0:
     dependencies:
       '@types/node': 22.0.0
       qs: 6.14.0

@@ -27,7 +27,19 @@ export function createClient() {
     shouldUseMock: shouldUseMockClient
   })
   
-  return createBrowserClient(supabaseUrl!, supabaseKey!)
+  return createBrowserClient(supabaseUrl!, supabaseKey!, {
+    auth: {
+      flowType: 'pkce',
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'supabase-js-web',
+      },
+    },
+  })
   
   // Original logic (commented out for testing):
   // if (shouldUseMockClient) {
