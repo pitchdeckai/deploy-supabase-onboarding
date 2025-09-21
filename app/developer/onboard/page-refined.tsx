@@ -13,8 +13,7 @@ import Script from "next/script";
 
 declare global {
   interface Window {
-    Stripe: any;
-    loadConnectAndInitialize?: (options: {
+    loadConnectAndInitialize: (options: {
       publishableKey: string;
       fetchClientSecret: () => Promise<string>;
       appearance?: { theme: string; variables: { [key: string]: string } };
@@ -120,104 +119,57 @@ export default function DeveloperOnboardPage() {
       if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
         throw new Error("Stripe publishable key is not configured");
       }
-      
-      // Check if Stripe is available
-      if (!window.Stripe) {
+      if (!window.loadConnectAndInitialize) {
         let attempts = 0;
         const maxAttempts = 100; // 10s timeout
-        while (!window.Stripe && attempts < maxAttempts) {
+        while (!window.loadConnectAndInitialize && attempts < maxAttempts) {
           await new Promise((resolve) => setTimeout(resolve, 100));
           attempts++;
         }
-        if (!window.Stripe) {
-          throw new Error("Stripe.js failed to load after timeout. Check network or CDN.");
+        if (!window.loadConnectAndInitialize) {
+          throw new Error("Stripe Connect script failed to load after timeout. Check network or CDN.");
         }
       }
-      console.log("[v0] Stripe.js available");
+      console.log("[v0] loadConnectAndInitialize available");
 
-      // Use standard Stripe.js with Connect components
-      console.log("[v0] Using Stripe.js Connect API");
-      const stripe = window.Stripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
-      console.log("[v0] Stripe instance created:", typeof stripe);
-      
-      // Get the client secret first
-      const clientSecret = await fetchClientSecret();
-      console.log("[v0] Client secret obtained");
-      
-      // Create embedded account onboarding
-      let accountOnboarding;
-      
-      // Try different Stripe Connect API patterns
-      if (stripe.connectAccounts && typeof stripe.connectAccounts.create === 'function') {
-        console.log("[v0] Using stripe.connectAccounts.create");
-        const connectInstance = stripe.connectAccounts.create({
-          appearance: {
-            theme: "stripe",
-            variables: { colorPrimary: "#635bff", colorText: "#30313d" },
-          },
-        });
-        accountOnboarding = connectInstance.create("account-onboarding", {
-          clientSecret: clientSecret,
-        });
-      } else if (stripe.connect && typeof stripe.connect === 'function') {
-        console.log("[v0] Using stripe.connect");
-        const connectInstance = stripe.connect({
-          appearance: {
-            theme: "stripe",
-            variables: { colorPrimary: "#635bff", colorText: "#30313d" },
-          },
-        });
-        accountOnboarding = connectInstance.create("account-onboarding", {
-          clientSecret: clientSecret,
-        });
-      } else {
-        // Direct approach
-        console.log("[v0] Using direct stripe approach");
-        accountOnboarding = stripe.elements({
-          clientSecret: clientSecret,
-          appearance: {
-            theme: "stripe",
-            variables: { colorPrimary: "#635bff", colorText: "#30313d" },
-          },
-        }).create("accountOnboarding");
+      const stripeConnect = window.loadConnectAndInitialize({
+        publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+        fetchClientSecret,
+        appearance: {
+          theme: "stripe",
+          variables: { colorPrimary: "#635bff", colorText: "#30313d" },
+        },
+      });
+
+      console.log("[v0] StripeConnect instance created successfully");
+      console.log("[v0] StripeConnect instance methods:", Object.getOwnPropertyNames(stripeConnect));
+
+      const embeddedComponent = stripeConnect.create("account-onboarding");
+      console.log("[v0] Component created successfully");
+      console.log("[v0] Component methods:", Object.getOwnPropertyNames(embeddedComponent));
+
+      if (typeof embeddedComponent.mount !== "function") {
+        console.error("[v0] Mount method missing. Available methods:", Object.getOwnPropertyNames(embeddedComponent));
+        throw new Error("Component does not have mount method. Check Stripe Connect API version or initialization.");
       }
-      
-      if (!accountOnboarding) {
-        throw new Error("Failed to create account onboarding component. Check Stripe Connect API.");
-      }
-      
-      console.log("[v0] Account onboarding component created:", typeof accountOnboarding);
-      console.log("[v0] Component methods:", Object.getOwnPropertyNames(accountOnboarding));
-      
+
       const container = document.getElementById("account-onboarding");
       if (!container) {
         throw new Error("Container #account-onboarding not found in DOM");
       }
-      
-      // Mount the component
-      if (typeof accountOnboarding.mount === 'function') {
-        accountOnboarding.mount("#account-onboarding");
-        console.log("[v0] Account onboarding mounted successfully");
-      } else {
-        console.error("[v0] Mount method not available. Available methods:", Object.getOwnPropertyNames(accountOnboarding));
-        throw new Error("Mount method not available on component");
-      }
+      embeddedComponent.mount("#account-onboarding");
+      console.log("[v0] Embedded onboarding mounted successfully");
 
-      // Set up event listeners if available
-      if (typeof accountOnboarding.on === 'function') {
-        accountOnboarding.on("ready", () => console.log("[v0] Onboarding component ready"));
-        accountOnboarding.on("exit", () => {
-          console.log("[v0] User exited onboarding");
-          setShowEmbeddedOnboarding(false);
-          checkOnboardingStatus();
-        });
-        accountOnboarding.on("complete", () => {
-          console.log("[v0] Onboarding complete");
-          setTimeout(() => router.push("/developer/dashboard"), 1000);
-        });
-      } else {
-        console.warn("[v0] Event listeners not available on this component");
-      }
+      embeddedComponent.on("ready", () => console.log("[v0] Onboarding component ready"));
+      embeddedComponent.on("exit", () => {
+        console.log("[v0] User exited onboarding");
+        setShowEmbeddedOnboarding(false);
+        checkOnboardingStatus();
+      });
+      embeddedComponent.on("complete", () => {
+        console.log("[v0] Onboarding complete");
+        setTimeout(() => router.push("/developer/dashboard"), 1000);
+      });
     } catch (error) {
       console.error("[v0] Error initializing embedded onboarding:", error);
       setError(error instanceof Error ? error.message : "Failed to initialize onboarding. Please try again.");
@@ -246,16 +198,11 @@ export default function DeveloperOnboardPage() {
   return (
     <>
       <Script
-        src="https://js.stripe.com/v3/"
+        src="https://js.stripe.com/v1/connect.js"
         strategy="lazyOnload"
         onLoad={() => {
-          console.log("[v0] Stripe script loaded successfully");
-          console.log("[v0] window.Stripe available:", typeof window.Stripe);
-          console.log("[v0] window.Stripe methods:", window.Stripe ? Object.getOwnPropertyNames(window.Stripe) : 'N/A');
+          console.log("[v0] Stripe Connect script loaded successfully");
           console.log("[v0] loadConnectAndInitialize available:", typeof window.loadConnectAndInitialize === "function");
-          if (window.Stripe && window.Stripe.connectAccounts) {
-            console.log("[v0] Stripe.connectAccounts available:", typeof window.Stripe.connectAccounts);
-          }
           setScriptLoaded(true);
         }}
         onError={() => {
